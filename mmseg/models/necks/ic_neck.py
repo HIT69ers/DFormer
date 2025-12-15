@@ -1,10 +1,10 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import torch.nn.functional as F
 from mmcv.cnn import ConvModule
-from mmcv.runner import BaseModule
+from mmengine.model import BaseModule
 
-from mmseg.ops import resize
-from ..builder import NECKS
+from mmseg.registry import MODELS
+from ..utils import resize
 
 
 class CascadeFeatureFusion(BaseModule):
@@ -33,28 +33,40 @@ class CascadeFeatureFusion(BaseModule):
             for Cascade Label Guidance in auxiliary heads.
     """
 
-    def __init__(
-        self,
-        low_channels,
-        high_channels,
-        out_channels,
-        conv_cfg=None,
-        norm_cfg=dict(type="BN"),
-        act_cfg=dict(type="ReLU"),
-        align_corners=False,
-        init_cfg=None,
-    ):
-        super(CascadeFeatureFusion, self).__init__(init_cfg=init_cfg)
+    def __init__(self,
+                 low_channels,
+                 high_channels,
+                 out_channels,
+                 conv_cfg=None,
+                 norm_cfg=dict(type='BN'),
+                 act_cfg=dict(type='ReLU'),
+                 align_corners=False,
+                 init_cfg=None):
+        super().__init__(init_cfg=init_cfg)
         self.align_corners = align_corners
         self.conv_low = ConvModule(
-            low_channels, out_channels, 3, padding=2, dilation=2, conv_cfg=conv_cfg, norm_cfg=norm_cfg, act_cfg=act_cfg
-        )
+            low_channels,
+            out_channels,
+            3,
+            padding=2,
+            dilation=2,
+            conv_cfg=conv_cfg,
+            norm_cfg=norm_cfg,
+            act_cfg=act_cfg)
         self.conv_high = ConvModule(
-            high_channels, out_channels, 1, conv_cfg=conv_cfg, norm_cfg=norm_cfg, act_cfg=act_cfg
-        )
+            high_channels,
+            out_channels,
+            1,
+            conv_cfg=conv_cfg,
+            norm_cfg=norm_cfg,
+            act_cfg=act_cfg)
 
     def forward(self, x_low, x_high):
-        x_low = resize(x_low, size=x_high.size()[2:], mode="bilinear", align_corners=self.align_corners)
+        x_low = resize(
+            x_low,
+            size=x_high.size()[2:],
+            mode='bilinear',
+            align_corners=self.align_corners)
         # Note: Different from original paper, `x_low` is underwent
         # `self.conv_low` rather than another 1x1 conv classifier
         #  before being used for auxiliary head.
@@ -65,7 +77,7 @@ class CascadeFeatureFusion(BaseModule):
         return x, x_low
 
 
-@NECKS.register_module()
+@MODELS.register_module()
 class ICNeck(BaseModule):
     """ICNet for Real-Time Semantic Segmentation on High-Resolution Images.
 
@@ -88,21 +100,17 @@ class ICNeck(BaseModule):
             Default: None.
     """
 
-    def __init__(
-        self,
-        in_channels=(64, 256, 256),
-        out_channels=128,
-        conv_cfg=None,
-        norm_cfg=dict(type="BN"),
-        act_cfg=dict(type="ReLU"),
-        align_corners=False,
-        init_cfg=None,
-    ):
-        super(ICNeck, self).__init__(init_cfg=init_cfg)
-        assert len(in_channels) == 3, (
-            "Length of input channels \
-                                        must be 3!"
-        )
+    def __init__(self,
+                 in_channels=(64, 256, 256),
+                 out_channels=128,
+                 conv_cfg=None,
+                 norm_cfg=dict(type='BN'),
+                 act_cfg=dict(type='ReLU'),
+                 align_corners=False,
+                 init_cfg=None):
+        super().__init__(init_cfg=init_cfg)
+        assert len(in_channels) == 3, 'Length of input channels \
+                                        must be 3!'
 
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -117,8 +125,7 @@ class ICNeck(BaseModule):
             conv_cfg=self.conv_cfg,
             norm_cfg=self.norm_cfg,
             act_cfg=self.act_cfg,
-            align_corners=self.align_corners,
-        )
+            align_corners=self.align_corners)
 
         self.cff_12 = CascadeFeatureFusion(
             self.out_channels,
@@ -127,14 +134,11 @@ class ICNeck(BaseModule):
             conv_cfg=self.conv_cfg,
             norm_cfg=self.norm_cfg,
             act_cfg=self.act_cfg,
-            align_corners=self.align_corners,
-        )
+            align_corners=self.align_corners)
 
     def forward(self, inputs):
-        assert len(inputs) == 3, (
-            "Length of input feature \
-                                        maps must be 3!"
-        )
+        assert len(inputs) == 3, 'Length of input feature \
+                                        maps must be 3!'
 
         x_sub1, x_sub2, x_sub4 = inputs
         x_cff_24, x_24 = self.cff_24(x_sub4, x_sub2)

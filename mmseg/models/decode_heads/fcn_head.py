@@ -3,11 +3,11 @@ import torch
 import torch.nn as nn
 from mmcv.cnn import ConvModule
 
-from ..builder import HEADS
+from mmseg.registry import MODELS
 from .decode_head import BaseDecodeHead
 
 
-@HEADS.register_module()
+@MODELS.register_module()
 class FCNHead(BaseDecodeHead):
     """Fully Convolution Networks for Semantic Segmentation.
 
@@ -21,33 +21,44 @@ class FCNHead(BaseDecodeHead):
         dilation (int): The dilation rate for convs in the head. Default: 1.
     """
 
-    def __init__(self, num_convs=2, kernel_size=3, concat_input=True, dilation=1, **kwargs):
+    def __init__(self,
+                 num_convs=2,
+                 kernel_size=3,
+                 concat_input=True,
+                 dilation=1,
+                 **kwargs):
         assert num_convs >= 0 and dilation > 0 and isinstance(dilation, int)
         self.num_convs = num_convs
         self.concat_input = concat_input
         self.kernel_size = kernel_size
-        super(FCNHead, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         if num_convs == 0:
             assert self.in_channels == self.channels
 
         conv_padding = (kernel_size // 2) * dilation
         convs = []
-        for i in range(num_convs):
-            _in_channels = self.in_channels if i == 0 else self.channels
+        convs.append(
+            ConvModule(
+                self.in_channels,
+                self.channels,
+                kernel_size=kernel_size,
+                padding=conv_padding,
+                dilation=dilation,
+                conv_cfg=self.conv_cfg,
+                norm_cfg=self.norm_cfg,
+                act_cfg=self.act_cfg))
+        for i in range(num_convs - 1):
             convs.append(
                 ConvModule(
-                    _in_channels,
+                    self.channels,
                     self.channels,
                     kernel_size=kernel_size,
                     padding=conv_padding,
                     dilation=dilation,
                     conv_cfg=self.conv_cfg,
                     norm_cfg=self.norm_cfg,
-                    act_cfg=self.act_cfg,
-                )
-            )
-
-        if len(convs) == 0:
+                    act_cfg=self.act_cfg))
+        if num_convs == 0:
             self.convs = nn.Identity()
         else:
             self.convs = nn.Sequential(*convs)
@@ -59,8 +70,7 @@ class FCNHead(BaseDecodeHead):
                 padding=kernel_size // 2,
                 conv_cfg=self.conv_cfg,
                 norm_cfg=self.norm_cfg,
-                act_cfg=self.act_cfg,
-            )
+                act_cfg=self.act_cfg)
 
     def _forward_feature(self, inputs):
         """Forward function for feature maps before classifying each pixel with

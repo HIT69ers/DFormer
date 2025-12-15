@@ -3,8 +3,8 @@ import torch
 import torch.nn as nn
 from mmcv.cnn import ConvModule
 
-from mmseg.ops import resize
-from ..builder import HEADS
+from mmseg.registry import MODELS
+from ..utils import resize
 from .decode_head import BaseDecodeHead
 
 
@@ -20,8 +20,9 @@ class ASPPModule(nn.ModuleList):
         act_cfg (dict): Config of activation layers.
     """
 
-    def __init__(self, dilations, in_channels, channels, conv_cfg, norm_cfg, act_cfg):
-        super(ASPPModule, self).__init__()
+    def __init__(self, dilations, in_channels, channels, conv_cfg, norm_cfg,
+                 act_cfg):
+        super().__init__()
         self.dilations = dilations
         self.in_channels = in_channels
         self.channels = channels
@@ -38,9 +39,7 @@ class ASPPModule(nn.ModuleList):
                     padding=0 if dilation == 1 else dilation,
                     conv_cfg=self.conv_cfg,
                     norm_cfg=self.norm_cfg,
-                    act_cfg=self.act_cfg,
-                )
-            )
+                    act_cfg=self.act_cfg))
 
     def forward(self, x):
         """Forward function."""
@@ -51,7 +50,7 @@ class ASPPModule(nn.ModuleList):
         return aspp_outs
 
 
-@HEADS.register_module()
+@MODELS.register_module()
 class ASPPHead(BaseDecodeHead):
     """Rethinking Atrous Convolution for Semantic Image Segmentation.
 
@@ -64,7 +63,7 @@ class ASPPHead(BaseDecodeHead):
     """
 
     def __init__(self, dilations=(1, 6, 12, 18), **kwargs):
-        super(ASPPHead, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         assert isinstance(dilations, (list, tuple))
         self.dilations = dilations
         self.image_pool = nn.Sequential(
@@ -75,17 +74,14 @@ class ASPPHead(BaseDecodeHead):
                 1,
                 conv_cfg=self.conv_cfg,
                 norm_cfg=self.norm_cfg,
-                act_cfg=self.act_cfg,
-            ),
-        )
+                act_cfg=self.act_cfg))
         self.aspp_modules = ASPPModule(
             dilations,
             self.in_channels,
             self.channels,
             conv_cfg=self.conv_cfg,
             norm_cfg=self.norm_cfg,
-            act_cfg=self.act_cfg,
-        )
+            act_cfg=self.act_cfg)
         self.bottleneck = ConvModule(
             (len(dilations) + 1) * self.channels,
             self.channels,
@@ -93,8 +89,7 @@ class ASPPHead(BaseDecodeHead):
             padding=1,
             conv_cfg=self.conv_cfg,
             norm_cfg=self.norm_cfg,
-            act_cfg=self.act_cfg,
-        )
+            act_cfg=self.act_cfg)
 
     def _forward_feature(self, inputs):
         """Forward function for feature maps before classifying each pixel with
@@ -108,7 +103,13 @@ class ASPPHead(BaseDecodeHead):
                 H, W) which is feature map for last layer of decoder head.
         """
         x = self._transform_inputs(inputs)
-        aspp_outs = [resize(self.image_pool(x), size=x.size()[2:], mode="bilinear", align_corners=self.align_corners)]
+        aspp_outs = [
+            resize(
+                self.image_pool(x),
+                size=x.size()[2:],
+                mode='bilinear',
+                align_corners=self.align_corners)
+        ]
         aspp_outs.extend(self.aspp_modules(x))
         aspp_outs = torch.cat(aspp_outs, dim=1)
         feats = self.bottleneck(aspp_outs)
