@@ -89,6 +89,10 @@ def get_path(
             _gt_path,
             item_name.replace("rgb", "semantic").replace("image", "gt_labelIds") + _gt_format,
         )
+    elif dataset_name == "Cityscapes":
+        rgb_path = os.path.join(_rgb_path, item_name, _rgb_format)
+        d_path = os.path.join(_x_path, item_name, _x_format)
+        gt_path = os.path.join(_gt_path, item_name, _gt_format)
     else:
         item_name = item_name.split("/")[1].split(".jpg")[0]
         rgb_path = os.path.join(
