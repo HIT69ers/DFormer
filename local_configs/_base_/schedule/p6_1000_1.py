@@ -3,12 +3,12 @@ from .. import *
 C.optimizer = "AdamW"
 
 """Train Config"""
-C.lr = 6e-5
+C.lr = 4e-2
 C.lr_power = 0.9
 C.momentum = 0.9
 C.weight_decay = 0.01
-C.batch_size = 8
-C.nepochs = 1000
+C.batch_size = 12
+C.nepochs = 240
 C.niters_per_epoch = C.num_train_imgs // C.batch_size + 1
 C.num_workers = 16
 C.train_scale_array = [0.5, 0.75, 1, 1.25, 1.5, 1.75]
