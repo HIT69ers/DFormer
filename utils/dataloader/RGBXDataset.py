@@ -134,6 +134,7 @@ class RGBXDataset(data.Dataset):
         self.dataset_name = setting["dataset_name"]
         self.x_modal = setting.get("x_modal", ["d"])
         self.backbone = setting["backbone"]
+        self.crop_size = setting.get("crop_size", (512, 1024))
 
     def __len__(self):
         if self._file_length is not None:
@@ -165,11 +166,14 @@ class RGBXDataset(data.Dataset):
 
         gt = self._open_image(path_dict["gt_path"], cv2.IMREAD_GRAYSCALE, dtype=np.uint8)
         if self._transform_gt:
-            gt = self._gt_transform(gt)
+            if self.dataset_name == "Cityscapes":
+                print(f"WARNING: There is no need for Cityscapes dataset to use config 'transform_gt'!")
+            else:
+                gt = self._gt_transform(gt)
 
         x = {}
         for modal in self.x_modal:
-            if modal == "d":
+            if modal == "d" and self.dataset_name != "Cityscapes":
                 x[modal] = self._open_image(path_dict[modal + "_path"], cv2.IMREAD_GRAYSCALE)
                 x[modal] = cv2.merge([x[modal], x[modal], x[modal]])
             else:
@@ -185,6 +189,10 @@ class RGBXDataset(data.Dataset):
             rgb = cv2.resize(rgb, dsize=(480, 480), interpolation=cv2.INTER_LINEAR)
             x = cv2.resize(x, dsize=(480, 480), interpolation=cv2.INTER_LINEAR)
             gt = cv2.resize(gt, dsize=(480, 480), interpolation=cv2.INTER_NEAREST)
+        elif self.dataset_name == "Cityscapes":
+            rgb = cv2.resize(rgb, self.crop_size, interpolation=cv2.INTER_LINEAR)
+            x = cv2.resize(x, self.crop_size, interpolation=cv2.INTER_LINEAR)
+            gt = cv2.resize(gt, self.crop_size, interpolation=cv2.INTER_NEAREST)
 
         # if self._x_single_channel:
         #     x = self._open_image(x_path, cv2.IMREAD_GRAYSCALE)
