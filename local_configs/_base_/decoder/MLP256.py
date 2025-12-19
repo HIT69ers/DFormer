@@ -1,4 +1,4 @@
 from .. import *
 
 C.decoder = "MLPDecoder"
-C.decodre_embed_dim  = 256
+C.decoder_embed_dim  = 256
