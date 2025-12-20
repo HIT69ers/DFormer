@@ -15,7 +15,7 @@ PYTHONPATH="$(dirname $0)/..":"$(dirname $0)":$PYTHONPATH \
     --nproc_per_node=$GPUS \
     --master_port=$PORT \
     utils/train.py \
-    --config=local_configs.Cityscapes.DNeXtV2.N_A_False_full_LMLP256_6_1000_1 --gpus=$GPUS \
+    --config=local_configs.Cityscapes.DNeXtV2.N_A_False_full_LMLP256_30_500_1 --gpus=$GPUS \
     --no-sliding \
     --no-compile \
     --syncbn \

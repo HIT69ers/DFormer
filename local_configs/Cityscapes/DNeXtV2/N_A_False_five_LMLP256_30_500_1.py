@@ -3,8 +3,8 @@ from ..._base_.decoder.LMLP256 import *
 from ..._base_.datasets.Cityscapes import *
 from ..._base_.schedule.p30_500_1 import *
 
-C.downsample_ratio = 1.0  # Remember change the name below.
-C.downsample_name = "full"
+C.downsample_ratio = 0.5  # Remember change the name below.
+C.downsample_name = "five"
 
 C.output_to_depth = False  # If adding fused feature maps into depth backbone
 C.stage1_scc = False  # If true, adding feature fusion after stage 1
