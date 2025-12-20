@@ -1,10 +1,10 @@
 GPUS=2
 NNODES=1
 NODE_RANK=${NODE_RANK:-0}
-PORT=${PORT:-29159}
+PORT=${PORT:-29160}
 MASTER_ADDR=${MASTER_ADDR:-"127.0.0.1"}
 
-export CUDA_VISIBLE_DEVICES="2,3"
+export CUDA_VISIBLE_DEVICES="4,5"
 export TORCHDYNAMO_VERBOSE=1
 
 PYTHONPATH="$(dirname $0)/..":"$(dirname $0)":$PYTHONPATH \
@@ -15,7 +15,7 @@ PYTHONPATH="$(dirname $0)/..":"$(dirname $0)":$PYTHONPATH \
     --nproc_per_node=$GPUS \
     --master_port=$PORT \
     utils/train.py \
-    --config=local_configs.Cityscapes.DNeXtV2.N_A_False_full_LMLP256_30_500_1 --gpus=$GPUS \
+    --config=local_configs.Cityscapes.DoubleMiT.b0_b0_full_MLP256_6_500_1 --gpus=$GPUS \
     --no-sliding \
     --no-compile \
     --syncbn \

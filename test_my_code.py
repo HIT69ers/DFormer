@@ -156,10 +156,10 @@ def test_feature_fusion():
 def test_DNeXtV2():
     from models.encoders.Dnext_v2 import DNeXtV2
 
-    dummy_rgb, dummy_depth = torch.randn(1, 3, 480, 640), torch.randn(1, 3, 480, 640)
-    dnext = DNeXtV2(rgb_backbone="B", 
+    dummy_rgb, dummy_depth = torch.randn(1, 3, 512, 1024), torch.randn(1, 3, 512, 1024)
+    dnext = DNeXtV2(rgb_backbone="N", 
                     d_backbone="A", 
-                    downsample_ratio=0.5, 
+                    downsample_ratio=1.0, 
                     output_to_depth=True, 
                     stage1_scc=False,
                     drop_path_rate=0.1)
