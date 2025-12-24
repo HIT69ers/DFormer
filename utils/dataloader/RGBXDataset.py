@@ -168,11 +168,7 @@ class RGBXDataset(data.Dataset):
         rgb = self._open_image(path_dict["rgb_path"], rgb_mode)
 
         gt = self._open_image(path_dict["gt_path"], cv2.IMREAD_GRAYSCALE, dtype=np.uint8)
-        if self._transform_gt:
-            if self.dataset_name == "Cityscapes":
-                print(f"WARNING: There is no need for Cityscapes dataset to use config 'transform_gt'!")
-            else:
-                gt = self._gt_transform(gt)
+        
 
         x = {}
         for modal in self.x_modal:
@@ -183,6 +179,16 @@ class RGBXDataset(data.Dataset):
                 x[modal] = self._open_image(path_dict[modal + "_path"], "RGB")
         if len(self.x_modal) == 1:
             x = x[self.x_modal[0]]
+        
+        if self._transform_gt:
+            if self.dataset_name == "Cityscapes":
+                if self.x_modal[0] == "hha":
+                    print(f"WARNING: There is no need for Cityscapes dataset with modal HHA to use config 'transform_gt'!")
+                elif self.x_modal[0] == "d" and self._split_name == "train":
+                    mask = x[:, :, 0] == 0
+                    gt[mask] = 255  # Disable labels where the value of depth map is 0 during training
+            else:
+                gt = self._gt_transform(gt)
 
         if self.dataset_name == "Scannet":
             rgb = cv2.resize(rgb, (640, 480), interpolation=cv2.INTER_LINEAR)

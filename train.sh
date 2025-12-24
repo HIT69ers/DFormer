@@ -1,10 +1,10 @@
 GPUS=2
 NNODES=1
 NODE_RANK=${NODE_RANK:-0}
-PORT=${PORT:-29160}
+PORT=${PORT:-29159}
 MASTER_ADDR=${MASTER_ADDR:-"127.0.0.1"}
 
-export CUDA_VISIBLE_DEVICES="4,5"
+export CUDA_VISIBLE_DEVICES="2,3"
 export TORCHDYNAMO_VERBOSE=1
 
 PYTHONPATH="$(dirname $0)/..":"$(dirname $0)":$PYTHONPATH \
@@ -15,7 +15,7 @@ PYTHONPATH="$(dirname $0)/..":"$(dirname $0)":$PYTHONPATH \
     --nproc_per_node=$GPUS \
     --master_port=$PORT \
     utils/train.py \
-    --config=local_configs.Cityscapes.DoubleMiT.nb0_nb0_full_MLP256_6_500_1 --gpus=$GPUS \
+    --config=local_configs.Cityscapes.DNeXtV2.N_A_False_five_LMLP256_6_500_1_b12 --gpus=$GPUS \
     --no-sliding \
     --no-compile \
     --syncbn \
@@ -24,5 +24,4 @@ PYTHONPATH="$(dirname $0)/..":"$(dirname $0)":$PYTHONPATH \
     --no-amp \
     --val_amp \
     --pad_SUNRGBD \
-    --use_seed \
-    -c="/mnt/syh/checkpoints/Cityscapes_DoubleMiT_mit_b0_mit_b0_full_20251223-195050/epoch-267_miou_47.28.pth"
+    --use_seed 

@@ -1,6 +1,6 @@
 from ..._base_.backbone.DNeXtV2_N_A import *
 from ..._base_.decoder.LMLP256 import *
-from ..._base_.datasets.Cityscapes_d import *
+from ..._base_.datasets.Cityscapes_d_mask import *
 from ..._base_.schedule.p6_500_1_b12 import *
 
 C.downsample_ratio = 0.5  # Remember change the name below.
