@@ -91,7 +91,10 @@ def get_path(
         )
     elif dataset_name == "Cityscapes":
         rgb_path = os.path.join(_rgb_path, item_name + _rgb_format)
-        hha_path = os.path.join(_x_path, item_name + _x_format)
+        if x_modal[0] == "hha":
+            hha_path = os.path.join(_x_path, item_name + _x_format)
+        else:
+            d_path = os.path.join(_x_path, item_name + _x_format)
         gt_path = os.path.join(_gt_path, item_name + _gt_format)
     else:
         item_name = item_name.split("/")[1].split(".jpg")[0]
@@ -173,7 +176,7 @@ class RGBXDataset(data.Dataset):
 
         x = {}
         for modal in self.x_modal:
-            if modal == "d" and self.dataset_name != "Cityscapes":
+            if modal == "d":
                 x[modal] = self._open_image(path_dict[modal + "_path"], cv2.IMREAD_GRAYSCALE)
                 x[modal] = cv2.merge([x[modal], x[modal], x[modal]])
             else:

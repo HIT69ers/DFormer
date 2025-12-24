@@ -24,4 +24,5 @@ PYTHONPATH="$(dirname $0)/..":"$(dirname $0)":$PYTHONPATH \
     --no-amp \
     --val_amp \
     --pad_SUNRGBD \
-    --use_seed 
+    --use_seed \
+    -c="/mnt/syh/checkpoints/Cityscapes_DoubleMiT_mit_b0_mit_b0_full_20251223-195050/epoch-267_miou_47.28.pth"
