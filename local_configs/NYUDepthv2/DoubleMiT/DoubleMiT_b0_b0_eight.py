@@ -1,4 +1,4 @@
-from .._base_.datasets.NYUDepthv2 import *
+from ..._base_.datasets.NYUDepthv2 import *
 
 """ Settings for network, this would be different for each kind of model"""
 # C.backbone = "DFormer-Base"  # Remember change the path below.
@@ -12,8 +12,8 @@ C.rgb_branch = "mit_b0"  # Remember change the path below.
 C.rgb_pretrained = "/mnt/syh/pretrained/segformer/mit_b0.pth"
 C.d_branch = "mit_b0"  # Remember change the path below.
 C.d_pretrained = "/mnt/syh/pretrained/segformer/mit_b0.pth"
-C.downsample_ratio = 1.0  # Remember change the name below.
-C.downsample_name = "full"
+C.downsample_ratio = 0.8  # Remember change the name below.
+C.downsample_name = "eight"
 C.decoder = "MLPDecoder"
 C.decoder_embed_dim = 512
 C.optimizer = "AdamW"

@@ -1,4 +1,4 @@
-from .._base_.datasets.NYUDepthv2 import *
+from ..._base_.datasets.NYUDepthv2 import *
 
 """ Settings for network, this would be different for each kind of model"""
 # C.backbone = "DFormer-Base"  # Remember change the path below.
