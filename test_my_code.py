@@ -1,3 +1,4 @@
+import time
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -5,6 +6,8 @@ import torch.nn.functional as F
 import numpy as np
 
 from thop import profile
+from tensorboardX import SummaryWriter
+from graphviz import Digraph
 
 
 class LayerNorm(nn.Module):
@@ -153,19 +156,87 @@ def test_feature_fusion():
     print("the flops is {}G,the params is {}M".format(round(flops / (10**9), 2), round(params / (10**6), 2)))
 
 
+node_id = 0
+
+
+def add_node(G: Digraph, input_grad_fn, gradfn_to_viznode:dict,):
+    if input_grad_fn in gradfn_to_viznode:
+        return
+    global node_id
+    gradfn_to_viznode[input_grad_fn] = str(node_id)
+    node_id += 1
+    print(f"adding {str(type(input_grad_fn))=}")
+    if type(input_grad_fn).__name__ == "AccumulateGrad":
+        v = input_grad_fn.variable
+        G.node(gradfn_to_viznode[input_grad_fn], label=f"AccumulateGrad:{list(v.shape)},{str(v.dtype)}", shape='rectangle', style='filled',)
+    else:
+        G.node(gradfn_to_viznode[input_grad_fn], label=f"{input_grad_fn.name()}")
+
+
+
+def _viz_graph(G: Digraph, grad_fn, gradfn_to_viznode: dict, visited: set):
+
+    if grad_fn is None:
+        print(f"grad_fn is None")
+        return
+
+    if grad_fn in visited:
+        return
+    visited.add(grad_fn)
+
+    for (input_grad_fn, index) in grad_fn.next_functions:
+        # 创建节点
+        #input_grad_fn 有3种情况：
+        # 1. AccumulateGrad
+        # 2. grad_fn比如AddBackward0
+        # 3. None
+        if input_grad_fn is None:
+            continue
+
+        add_node(G, input_grad_fn, gradfn_to_viznode)
+
+        #创建边
+        G.edge(head_name=gradfn_to_viznode[grad_fn], tail_name=gradfn_to_viznode[input_grad_fn], label=str(index))
+
+        #如果不是AccumulateGrad，则递归处理
+        if type(input_grad_fn).__name__ == "AccumulateGrad":       
+            continue
+        _viz_graph(G, input_grad_fn, gradfn_to_viznode, visited)
+
+
+def viz_graph(t: torch.Tensor) -> Digraph:
+    G = Digraph()
+    if t.grad_fn is not None:
+        global node_id
+        G.node("out", label=f"out:{list(t.shape)},{str(t.dtype)}", shape='rectangle', style='filled', )
+        gradfn_to_viznode = {}
+        add_node(G, t.grad_fn, gradfn_to_viznode)
+        G.edge(head_name="out", tail_name=gradfn_to_viznode[t.grad_fn])
+        _viz_graph(G, t.grad_fn, gradfn_to_viznode, set())
+    else:
+        assert t.grad_fn is not None, f"{t=} should have a grad_fn"
+
+    return G
+
+
 def test_DNeXtV2():
     from models.encoders.Dnext_v2 import DNeXtV2
 
-    dummy_rgb, dummy_depth = torch.randn(1, 3, 512, 1024), torch.randn(1, 3, 512, 1024)
+    dummy_rgb, dummy_depth = torch.randn(1, 3, 480, 640).requires_grad_(), \
+        torch.randn(1, 3, 480, 640).requires_grad_()
     dnext = DNeXtV2(rgb_backbone="N", 
                     d_backbone="A", 
                     downsample_ratio=1.0, 
                     output_to_depth=True, 
-                    stage1_scc=False,
+                    stage1_scc=True,
                     drop_path_rate=0.1)
     dnext.init_weights(pretrained_rgb=None,
                        pretrained_d=None)
+    print(f"-----------------Time count begin---------------------")
+    T1 = time.perf_counter()
     outputs = dnext(dummy_rgb, dummy_depth)
+    T2 = time.perf_counter()
+    print(T2-T1)
     print(f"output 1 shape: {outputs[0].shape}")
     print(f"output 2 shape: {outputs[1].shape}")
     print(f"output 3 shape: {outputs[2].shape}")
@@ -173,6 +244,9 @@ def test_DNeXtV2():
     flops, params = profile(model=dnext, inputs=(dummy_rgb, dummy_depth))
     print(f"-------------------------DNeXtV2-------------------------")
     print("the flops is {}G,the params is {}M".format(round(flops / (10**9), 2), round(params / (10**6), 2)))
+    # writer = SummaryWriter(logdir='./test_graph')
+    # writer.add_graph(dnext, (dummy_rgb, dummy_depth))
+    # viz_graph(outputs[0]).render("DNextV2", format="png")
 
 
 if __name__ == "__main__":

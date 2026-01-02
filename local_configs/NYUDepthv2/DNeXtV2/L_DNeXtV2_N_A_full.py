@@ -11,8 +11,8 @@ C.d_branch = "A"  # Remember change the path below.
 C.d_pretrained = "/mnt/syh/pretrained/ConvNeXtV2/ImageNet-1K/convnextv2_atto_1k_224_ema.pt"
 C.downsample_ratio = 1.0  # Remember change the name below.
 C.downsample_name = "full"
-C.decoder = "LMLPDecoder"
-C.decoder_embed_dim = 512
+C.decoder = "MLPDecoder"
+C.decoder_embed_dim = 256
 C.optimizer = "AdamW"
 
 C.output_to_depth = False  # If adding fused feature maps into depth backbone

@@ -45,6 +45,8 @@ class DNeXtV2(nn.Module):
             self.SCCs = nn.ModuleList(
                 [SCC_Module(inc_depth2=self.d_dims[i], inc_rgb=self.rgb_dims[i]) for i in range(4)]
             )
+        logger.info(f"Setting stage1_scc as {self.stage1_scc}")
+        logger.info(f"nums of SCC_module: {len(self.SCCs)}")
 
         # If adding fused feature maps into depth backbone
         self.output_to_depth = output_to_depth

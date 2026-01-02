@@ -36,7 +36,7 @@ class Cross_Atten_Lite_split(nn.Module):
         self.out_conv = nn.Linear(2 * self.midc1, inc1)
 
         self.bn_last = nn.BatchNorm2d(inc1)
-        self.dropout = nn.Dropout(0.2)
+        self.dropout = nn.Dropout(0.0)
         self._init_weight()
 
     def forward(self, x, x1, x2):
@@ -139,6 +139,7 @@ class SCC_Module(nn.Module):
         fus_s = self.bn(fus_s)
 
         fus_s = self.cross_atten(fus_s, depth_out, rgb_out)
+        print(f"IAMHERE")
 
         return fus_s
     
