@@ -15,7 +15,7 @@ PYTHONPATH="$(dirname $0)/..":"$(dirname $0)":$PYTHONPATH \
     --nproc_per_node=$GPUS \
     --master_port=$PORT \
     utils/train.py \
-    --config=local_configs.NYUDepthv2.DNeXtV2.L_DNeXtV2_N_A_full --gpus=$GPUS \
+    --config=local_configs.NYUDepthv2.DNeXtV2.F_T1_A_full --gpus=$GPUS \
     --no-sliding \
     --no-compile \
     --syncbn \

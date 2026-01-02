@@ -51,11 +51,13 @@ class DNeXtV2(nn.Module):
         # If adding fused feature maps into depth backbone
         self.output_to_depth = output_to_depth
 
+        self.apply(self._init_weights)
+
     def _init_weights(self, m):
         ## 注意：该初始化方式来自ConvNeXtV2，不同于CMX中对FRM和FFM中参数初始化的方式
         if isinstance(m, (nn.Conv2d, nn.Linear)):
             trunc_normal_(m.weight, std=.02)
-            nn.init.constant_(m.bias, 0)
+            # nn.init.constant_(m.bias, 0)
 
     def init_weights(self, pretrained_rgb=None, pretrained_d=None):
         load_DNeXtV2_model(self, pretrained_rgb, pretrained_d)
