@@ -139,7 +139,7 @@ class SCC_Module(nn.Module):
         fus_s = self.bn(fus_s)
 
         fus_s = self.cross_atten(fus_s, depth_out, rgb_out)
-        print(f"IAMHERE")
+        # print(f"IAMHERE")
 
         return fus_s
     

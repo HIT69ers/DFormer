@@ -122,7 +122,7 @@ def test_double_NeXtV2():
 
 
 def test_feature_fusion():
-    print(f"-------------------------test_feature_fusion-------------------------")
+    print(f"-------------------------test_feature_fusion of CMX-------------------------")
     from models.net_utils import FeatureFusionModule as FFM
     from models.net_utils import FeatureRectifyModule as FRM
 
@@ -152,8 +152,28 @@ def test_feature_fusion():
         params_list.append(params)
     flops = np.array(flops_list).sum()
     params = np.array(params_list).sum()
-    print(f"-------------------------feature fusion-------------------------")
+    print(f"-------------------------feature fusion CMX-------------------------")
     print("the flops is {}G,the params is {}M".format(round(flops / (10**9), 2), round(params / (10**6), 2)))
+
+    print(f"-------------------------test_feature_fusion of Asymformer-------------------------")
+    from models.my_utils.asymformer_module import SCC_Module
+    rgb_channel = [96, 192, 384, 768] 
+    depth_channel = [32, 64, 160, 256]
+    H, W = 480, 640
+
+    rgb_inputs = [torch.randn(1, rgb_channel[0], H//4, W//4),
+              torch.randn(1, rgb_channel[1], H//8, W//8),
+              torch.randn(1, rgb_channel[2], H//16, W//16),
+              torch.randn(1, rgb_channel[3], H//32, W//32),]
+    depth_inputs = [torch.randn(1, depth_channel[0], H//4, W//4),
+              torch.randn(1, depth_channel[1], H//8, W//8),
+              torch.randn(1, depth_channel[2], H//16, W//16),
+              torch.randn(1, depth_channel[3], H//32, W//32),]
+
+    SCC_4 = nn.ModuleList([SCC_Module(depth_channel[i], rgb_channel[i]) for i in range(4)])
+    for i in range(4):
+        flops, params = profile(SCC_4[i], inputs=(depth_inputs[i], rgb_inputs[i]))
+        print(f"Stage {i} Flops: {round(flops / (10**9), 2)}G  Params: {round(params / (10**6), 2)}M")
 
 
 node_id = 0
@@ -253,5 +273,5 @@ if __name__ == "__main__":
     # test_asym_rgbd()
     # learn_layernorm()
     # test_double_NeXtV2()
-    # test_feature_fusion()
-    test_DNeXtV2()
+    test_feature_fusion()
+    # test_DNeXtV2()
