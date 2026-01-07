@@ -1,12 +1,7 @@
 from torch.nn import functional as F
-try:
-    from src.mix_transformer import OverlapPatchEmbed, mit_b0
-    from src.convnext import convnext_tiny, MyRGB, convnext_small, convnext_base
-    from src.MLPDecoder import DecoderHead
-except:
-    from mix_transformer import OverlapPatchEmbed, mit_b0
-    from convnext import convnext_tiny, MyRGB, convnext_small, convnext_base
-    from MLPDecoder import DecoderHead
+from ..my_utils.asymformer_module import *
+from .convnext import *
+from .mix_transformer import *
 from thop import profile
 
 import os
@@ -26,9 +21,9 @@ def load_pretrain2(net, pretrain_name):
     return net
 
 
-# model1 = convnext_tiny(pretrained=True, drop_path_rate=0.3)
+model1 = convnext_tiny(pretrained=True, drop_path_rate=0.3)
 # model1 = convnext_small(pretrained=True, drop_path_rate=0.3)
-model1 = convnext_base(pretrained=True, drop_path_rate=0.3)
+# model1 = convnext_base(pretrained=True, drop_path_rate=0.3)
 ft1 = model1.stages
 stem = model1.downsample_layers
 stem1 = [stem[0], stem[1], stem[2], stem[3]]
@@ -38,11 +33,11 @@ layers1 = [
     ft1[2],
     ft1[3]]
 
-new_model1 = MyRGB()
-new_ft1 = new_model1.model.stages
-new_stem = new_model1.model.downsample_layers
-new_stem1 = [new_stem[i] for i in range(4)]
-new_layers1 = [new_ft1[i] for i in range(4)]
+# new_model1 = MyRGB()
+# new_ft1 = new_model1.model.stages
+# new_stem = new_model1.model.downsample_layers
+# new_stem1 = [new_stem[i] for i in range(4)]
+# new_layers1 = [new_ft1[i] for i in range(4)]
 
 
 model2 = mit_b0()
@@ -193,23 +188,6 @@ class SCC_Module(nn.Module):
 
         return fus_s
 
-class MySCC(SCC_Module):
-    def __init__(self, inc_depth2, inc_rgb):
-        super().__init__(inc_depth2, inc_rgb)
-    
-    def forward(self, depth_out, rgb_out):
-        _, _, h, w = depth_out.shape
-        rgb_out = F.interpolate(rgb_out, (h, w), mode='bilinear', align_corners=True)
-
-        fus_s = torch.cat([depth_out, rgb_out], dim=1)
-        fus_s = self.fus_atten(fus_s)
-        fus_s = self.conv1(fus_s)
-        fus_s = self.bn(fus_s)
-
-        fus_s = self.cross_atten(fus_s, depth_out, rgb_out)
-
-        return fus_s
-
 
 class down_sample_block(nn.Module):
     def __init__(self, inc_depth, inc_rgb, block_num):
@@ -249,28 +227,15 @@ class down_sample_block(nn.Module):
             return rgb_out, merge
         else:
             return rgb_out, depth_out
-        
-class My_down_sample_block(down_sample_block):
-    def __init__(self, inc_depth, inc_rgb, block_num):
-        super().__init__(inc_depth, inc_rgb, block_num)
-        if block_num != 0:
-            self.rgb_stem = new_stem1[block_num]
-        else:
-            self.rgb_stem = new_stem1[0]
-
-        self.rgb_layer = new_layers1[block_num]
-
-        if self.block_num != 0:
-            self.SCC = MySCC(inc_depth2=inc_depth, inc_rgb=inc_rgb)
-
+    
 
 class B0_T(nn.Module):
     def __init__(self, num_classes):
         super(B0_T, self).__init__()
 
         self.channel = [32, 64, 160, 256]
-        # channel_list2 = [96, 192, 384, 768]  # tiny, small
-        channel_list2 = [128, 256, 512, 1024]  # base
+        channel_list2 = [96, 192, 384, 768]  # tiny, small
+        # channel_list2 = [128, 256, 512, 1024]  # base
 
         self.down_sample_1 = down_sample_block(inc_depth=self.channel[0], inc_rgb=channel_list2[0], block_num=0)
 
@@ -283,10 +248,6 @@ class B0_T(nn.Module):
         self.down_sample_4 = down_sample_block(inc_depth=self.channel[3],
                                                inc_rgb=channel_list2[3], block_num=3)
 
-        self.Decoder = DecoderHead(in_channels=self.channel, num_classes=num_classes, dropout_ratio=0.1,
-                                   norm_layer=nn.BatchNorm2d,
-                                   embed_dim=256)
-
     def forward(self, image, depth):
         input_shape = image.shape[-2:]
 
@@ -296,58 +257,8 @@ class B0_T(nn.Module):
         rgb_out, depth_out3 = self.down_sample_3(rgb_out, depth_out2)
         _, depth_out = self.down_sample_4(rgb_out, depth_out3)
 
-        rgb_out = self.Decoder(
-            [depth_out1,
-             depth_out2,
-             depth_out3,
-             depth_out])
-        rgb_out = F.interpolate(rgb_out, size=input_shape, mode='bilinear', align_corners=False)
-        return rgb_out
-    
-
-class MyB0T(B0_T):
-    def __init__(self, num_classes):
-        super().__init__(num_classes)
-        self.channel = [32, 64, 160, 256]
-        # channel_list2 = [96, 192, 384, 768]  # tiny, small
-        channel_list2 = [128, 256, 512, 1024]  # base
-
-        self.my_rgb_stem = nn.Sequential(
-            new_model1.downsample,
-            new_model1.norm,
-            new_model1.relu
-        )
-        self.down_sample_1 = My_down_sample_block(inc_depth=self.channel[0], inc_rgb=channel_list2[0], block_num=0)
-
-        self.down_sample_2 = My_down_sample_block(inc_depth=self.channel[1],
-                                               inc_rgb=channel_list2[1], block_num=1)
-
-        self.down_sample_3 = My_down_sample_block(inc_depth=self.channel[2],
-                                               inc_rgb=channel_list2[2], block_num=2)
-
-        self.down_sample_4 = My_down_sample_block(inc_depth=self.channel[3],
-                                               inc_rgb=channel_list2[3], block_num=3)
-    
-    def forward(self, image, depth):
-        input_shape = image.shape[-2:]
-        image = self.my_rgb_stem(image)
-
-        rgb_out, depth_out1 = self.down_sample_1(image, depth)
-        rgb_out, depth_out2 = self.down_sample_2(rgb_out, depth_out1)
-
-        rgb_out, depth_out3 = self.down_sample_3(rgb_out, depth_out2)
-        # print(f"---------------Before layer 4---------------")
-        # print(f"rgb_out.shape:{rgb_out.shape}")
-        # print(f"depth_out3.shape:{depth_out3.shape}")
-        _, depth_out = self.down_sample_4(rgb_out, depth_out3)
-
-        rgb_out = self.Decoder(
-            [depth_out1,
-             depth_out2,
-             depth_out3,
-             depth_out])
-        rgb_out = F.interpolate(rgb_out, size=input_shape, mode='bilinear', align_corners=False)
-        return rgb_out
+        outs = [depth_out1, depth_out2, depth_out3, depth_out]
+        return outs
 
 
 if __name__ == '__main__':
@@ -357,14 +268,5 @@ if __name__ == '__main__':
     depth = torch.rand(1, 1, 480, 640)
     macs, params = profile(model, inputs=(image, depth,))
     print(f"---------------Before Reducing Resolution---------------")
-    print(macs / (1000 ** 3))
-    print(params / (1000 ** 2))
-
-    model = MyB0T(num_classes=40)
-    model.eval()
-    image = torch.rand(1, 3, 480, 640)
-    depth = torch.rand(1, 1, 480, 640)
-    macs, params = profile(model, inputs=(image, depth,))
-    print(f"---------------After Reducing Resolution---------------")
     print(macs / (1000 ** 3))
     print(params / (1000 ** 2))
