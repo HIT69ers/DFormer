@@ -234,8 +234,7 @@ class B0_T(nn.Module):
         super(B0_T, self).__init__()
 
         self.channel = [32, 64, 160, 256]
-        channel_list2 = [96, 192, 384, 768]  # tiny, small
-        # channel_list2 = [128, 256, 512, 1024]  # base
+        channel_list2 = [96, 192, 384, 768]  
 
         self.down_sample_1 = down_sample_block(inc_depth=self.channel[0], inc_rgb=channel_list2[0], block_num=0)
 
