@@ -104,6 +104,8 @@ class EncoderDecoder(nn.Module):
             from .encoders.double_next_v2 import DoubleNeXtV2 as backbone
         elif cfg.backbone == "DNeXtV2":
             from .encoders.Dnext_v2 import DNeXtV2 as backbone
+        elif cfg.backbone == "B0_T":
+            from .encoders.AsymFormer import B0_T as backbone
         else:
             raise NotImplementedError
 
@@ -145,6 +147,9 @@ class EncoderDecoder(nn.Module):
                                          downsample_ratio=float(cfg.downsample_ratio),
                                          drop_path_rate=cfg.drop_path_rate)
             self.channels = self.backbone.d_dims
+        elif cfg.backbone == "B0_T":
+            self.backbone == backbone(num_classes=40)
+            self.channels = [32, 64, 160, 256]
 
         self.aux_head = None
 

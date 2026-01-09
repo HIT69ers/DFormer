@@ -168,6 +168,14 @@ def convnext_tiny(pretrained=False,in_22k=False, **kwargs):
         model.load_state_dict(checkpoint["model"])
     return model
 
+def convnext_tiny_local(pretrained=False, in_22k=False, **kwargs):
+    model = ConvNeXt(depths=[3, 3, 9, 3], dims=[96, 192, 384, 768], **kwargs)
+    if pretrained:
+        # url = model_urls['convnext_tiny_22k'] if in_22k else model_urls['convnext_tiny_1k']
+        checkpoint = torch.load(pretrained, map_location="cpu")
+        model.load_state_dict(checkpoint["model"])
+    return model
+
 @register_model
 def convnext_small(pretrained=False,in_22k=False, **kwargs):
     model = ConvNeXt(depths=[3, 3, 27, 3], dims=[96, 192, 384, 768], **kwargs)

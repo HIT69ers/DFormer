@@ -8,12 +8,12 @@ import os
 
 
 def load_pretrain2(net, pretrain_name):
-    dir_path = os.getcwd()
-    pretrain_path = os.path.join(dir_path, 'src/model_zoo/segformer/imagenet_pretrain', pretrain_name)
-    print("Pretrain_path:", pretrain_path)
+    # dir_path = os.getcwd()
+    # pretrain_path = os.path.join(dir_path, 'src/model_zoo/segformer/imagenet_pretrain', pretrain_name)
+    # print("Pretrain_path:", pretrain_path)
     net_dict = net.state_dict()
 
-    pretrain_dict = torch.load(pretrain_path)
+    pretrain_dict = torch.load(pretrain_name)
 
     dict = {k: v for k, v in pretrain_dict.items() if k in net_dict}
     net_dict.update(dict)
@@ -21,7 +21,7 @@ def load_pretrain2(net, pretrain_name):
     return net
 
 
-model1 = convnext_tiny(pretrained=True, drop_path_rate=0.3)
+model1 = convnext_tiny_local(pretrained=True, drop_path_rate=0.3)
 # model1 = convnext_small(pretrained=True, drop_path_rate=0.3)
 # model1 = convnext_base(pretrained=True, drop_path_rate=0.3)
 ft1 = model1.stages
@@ -41,7 +41,7 @@ layers1 = [
 
 
 model2 = mit_b0()
-# model2 = load_pretrain2(model2, pretrain_name='mit_b0.pth')
+model2 = load_pretrain2(model2, pretrain_name="/mnt/syh/pretrained/segformer/mit_b0.pth")
 layers2 = [model2.block1, model2.block2, model2.block3, model2.block4]
 stem2 = [model2.patch_embed1, model2.patch_embed2, model2.patch_embed3, model2.patch_embed4]
 norm2 = [model2.norm1, model2.norm2, model2.norm3, model2.norm4]
@@ -194,12 +194,15 @@ class down_sample_block(nn.Module):
         super(down_sample_block, self).__init__()
         self.block_num = block_num
 
-        if block_num != 0:
-            self.depth_stem = stem2[block_num]
-            self.rgb_stem = stem1[block_num]
-        else:
-            self.depth_stem = OverlapPatchEmbed(in_chans=1, embed_dim=inc_depth)
-            self.rgb_stem = stem1[0]
+        # if block_num != 0:
+        #     self.depth_stem = stem2[block_num]
+        #     self.rgb_stem = stem1[block_num]
+        # else:
+        #     self.depth_stem = OverlapPatchEmbed(in_chans=1, embed_dim=inc_depth)
+        #     self.rgb_stem = stem1[0]
+
+        self.depth_stem = stem2[block_num]
+        self.rgb_stem = stem1[block_num]
 
         self.rgb_layer = layers1[block_num]
         self.depth_layer = layers2[block_num]
