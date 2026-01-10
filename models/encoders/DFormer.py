@@ -11,7 +11,7 @@ from mmcv.cnn import build_norm_layer
 from mmcv.cnn.bricks.transformer import FFN, build_dropout
 
 # from mmcv.cnn.utils.weight_init import (constant_init, trunc_normal_,
-#                                         trunc_normal_init)
+#                                         trunc_normal_init)!!
 # from mmcv.runner import (BaseModule, CheckpointLoader, ModuleList,
 #                          load_state_dict)
 from mmengine.model.base_module import BaseModule
@@ -104,38 +104,42 @@ class attention(nn.Module):
 
     def forward(self, x, x_e):
         B, H, W, C = x.size()
-        x = self.norm(x)
-        x_e = self.norm_e(x_e)
+        x = self.norm(x)  # [B, H, W, C]
+        x_e = self.norm_e(x_e)  # [B, H, W, C//2]
         if self.window != 0:
-            short_cut = torch.cat([x, x_e], dim=3)  ##########
-            short_cut = short_cut.permute(0, 3, 1, 2)  #############
+            short_cut = torch.cat([x, x_e], dim=3)  # [B, H, W, C+C//2]
+            short_cut = short_cut.permute(0, 3, 1, 2)  # [B, C+C//2, H, W]
 
-        q = self.q(x)
-        cutted_x = self.q_cut(x)
-        x = self.l(x).permute(0, 3, 1, 2)
-        x = self.act(x)
+        q = self.q(x)  # [B, H, W, C]
+        cutted_x = self.q_cut(x)  # [B, H, W, C//2]
+        x = self.l(x).permute(0, 3, 1, 2)  # [B, C, H, W]
+        x = self.act(x)  # [B, C, H, W]
 
-        a = self.conv(x)
-        a = a.permute(0, 2, 3, 1)
-        a = self.a(a)
+        a = self.conv(x)  # [B, C, H, W] # depth-wise conv
+        a = a.permute(0, 2, 3, 1)  # [B, H, W, C]
+        a = self.a(a)  # [B, H, W, C]
 
         if self.window != 0:
-            b = x.permute(0, 2, 3, 1)
-            kv = self.kv(b)
-            kv = kv.reshape(B, H * W, 2, self.num_head, C // self.num_head // 2).permute(2, 0, 3, 1, 4)
-            k, v = kv.unbind(0)
-            short_cut = self.pool(short_cut).permute(0, 2, 3, 1)
-            short_cut = self.short_cut_linear(short_cut)
+            b = x.permute(0, 2, 3, 1)  # [B, H, W, C]
+            kv = self.kv(b)  # [B, H, W, C]
+            kv = kv.reshape(B, H * W, 2, self.num_head, C // self.num_head // 2).permute(2, 0, 3, 1, 4)  
+            # [2, B, num_head, H*W, C//num_head//2]
+
+            k, v = kv.unbind(0)  # [B, num_head, H*W, C//num_head//2] each
+            short_cut = self.pool(short_cut).permute(0, 2, 3, 1)  # [B, 7, 7, C+C//2]
+            short_cut = self.short_cut_linear(short_cut)  # [B, 7, 7, C//2]
             short_cut = short_cut.reshape(B, -1, self.num_head, C // self.num_head // 2).permute(0, 2, 1, 3)
-            m = short_cut
-            attn = (m * (C // self.num_head // 2) ** -0.5) @ k.transpose(-2, -1)
+            # [B, num_head, 49, C//num_head//2]
+
+            m = short_cut  # [B, num_head, 49, C//num_head//2]
+            attn = (m * (C // self.num_head // 2) ** -0.5) @ k.transpose(-2, -1)  # [B, num_head, 49, H*W]
             attn = attn.softmax(dim=-1)
             attn = (
-                (attn @ v)
-                .reshape(B, self.num_head, self.window, self.window, C // self.num_head // 2)
+                (attn @ v)  # [B, num_head, 49, C//num_head//2]
+                .reshape(B, self.num_head, self.window, self.window, C // self.num_head // 2)  # [B, num_head, window, window, C//num_head//2]
                 .permute(0, 1, 4, 2, 3)
                 .reshape(B, C // 2, self.window, self.window)
-            )
+            )  # [B, C//2, window, window]
             attn = F.interpolate(attn, (H, W), mode="bilinear", align_corners=False).permute(0, 2, 3, 1)
 
         x_e = self.e_back(self.e_conv(self.e_fore(x_e).permute(0, 3, 1, 2)).permute(0, 2, 3, 1))

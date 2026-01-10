@@ -207,7 +207,10 @@ def get_val_loader(engine, dataset, config, val_batch_size=1):
     }
     val_preprocess = ValPre(config.norm_mean, config.norm_std, config.x_is_single_channel, config)
 
-    val_dataset = dataset(data_setting, "val", val_preprocess)
+    # val_dataset = dataset(data_setting, "val", val_preprocess)
+
+    n_iters = config.num_eval_imgs // val_batch_size + 1
+    val_dataset = dataset(data_setting, "val", val_preprocess, val_batch_size*n_iters)
 
     val_sampler = None
     is_shuffle = False

@@ -56,6 +56,8 @@ class FeatureRectifyModule(nn.Module):
         self.lambda_s = lambda_s
         self.channel_weights = ChannelWeights(dim=dim, reduction=reduction)
         self.spatial_weights = SpatialWeights(dim=dim, reduction=reduction)
+        
+        self.apply(self._init_weights)
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):

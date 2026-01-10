@@ -26,6 +26,7 @@ from torch.utils.data import DistributedSampler, RandomSampler
 from torch import distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 import cv2
+import torch.cuda as cuda
 
 # from semseg.utils.utils import fix_seeds, setup_cudnn, cleanup_ddp, setup_ddp, get_logger, cal_flops, print_iou
 
@@ -89,9 +90,18 @@ def evaluate(model, dataloader, config, device, engine, save_dir=None, sliding=F
             (engine.distributed and (engine.local_rank == 0)) or (not engine.distributed)
         ):
             print(f"Validation Iter: {idx + 1} / {len(dataloader)}")
-        images = minibatch["data"]
-        labels = minibatch["label"]
-        modal_xs = minibatch["modal_x"]
+            print_time = True
+        else:
+            print_time = False
+
+        T1 = time.perf_counter()
+        # images = minibatch["data"]
+        # labels = minibatch["label"]
+        # modal_xs = minibatch["modal_x"]
+        images = minibatch["data"].cuda(non_blocking=True)
+        labels = minibatch["label"].cuda(non_blocking=True)
+        modal_xs = minibatch["modal_x"].cuda(non_blocking=True)
+        
         if len(images.shape) == 3:
             images = images.unsqueeze(0)
         if len(modal_xs.shape) == 3:
@@ -99,20 +109,26 @@ def evaluate(model, dataloader, config, device, engine, save_dir=None, sliding=F
         if len(labels.shape) == 2:
             labels = labels.unsqueeze(0)
         # print(images.shape,labels.shape)
-        images = [images.to(device), modal_xs.to(device)]
-        labels = labels.to(device)
+        T2 = time.perf_counter()
+        if print_time:
+            print(f"Times 1 is: {round((T2 - T1), 2)} s.")
+        
         if sliding:
             preds = slide_inference(model, images, modal_xs, config).softmax(dim=1)
         else:
-            preds = model(images[0], images[1]).softmax(dim=1)
+            preds = model(images, modal_xs).softmax(dim=1)
         # print(preds.shape,labels.shape)
+        
         B, H, W = labels.shape
         metrics.update(preds, labels)
         # for i in range(B):
         #     metrics.update(preds[i].unsqueeze(0), labels[i].unsqueeze(0))
         # metrics.update(preds, labels)
-
+        T3 = time.perf_counter()
+        if print_time:
+            print(f"Times 2 is: {round((T3 - T1), 2)} s.")
         if save_dir is not None:
+            print(f"Warning: save_dir is NOT None!")
             palette = [
                 [128, 64, 128],
                 [244, 35, 232],
@@ -166,6 +182,10 @@ def evaluate(model, dataloader, config, device, engine, save_dir=None, sliding=F
                 plt.imsave(save_name, preds)
             else:
                 assert 1 == 2
+        
+        T4 = time.perf_counter()
+        if print_time:
+            print(f"Times 3 is: {round((T4 - T1), 2)} s.")
 
     # ious, miou = metrics.compute_iou()
     # acc, macc = metrics.compute_pixel_acc()

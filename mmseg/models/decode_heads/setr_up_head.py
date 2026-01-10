@@ -2,12 +2,12 @@
 import torch.nn as nn
 from mmcv.cnn import ConvModule, build_norm_layer
 
-from mmseg.ops import Upsample
-from ..builder import HEADS
+from mmseg.registry import MODELS
+from ..utils import Upsample
 from .decode_head import BaseDecodeHead
 
 
-@HEADS.register_module()
+@MODELS.register_module()
 class SETRUPHead(BaseDecodeHead):
     """Naive upsampling head and Progressive upsampling head of SETR.
 
@@ -25,21 +25,23 @@ class SETRUPHead(BaseDecodeHead):
                      type='Constant', val=1.0, bias=0, layer='LayerNorm').
     """
 
-    def __init__(
-        self,
-        norm_layer=dict(type="LN", eps=1e-6, requires_grad=True),
-        num_convs=1,
-        up_scale=4,
-        kernel_size=3,
-        init_cfg=[
-            dict(type="Constant", val=1.0, bias=0, layer="LayerNorm"),
-            dict(type="Normal", std=0.01, override=dict(name="conv_seg")),
-        ],
-        **kwargs,
-    ):
-        assert kernel_size in [1, 3], "kernel_size must be 1 or 3."
+    def __init__(self,
+                 norm_layer=dict(type='LN', eps=1e-6, requires_grad=True),
+                 num_convs=1,
+                 up_scale=4,
+                 kernel_size=3,
+                 init_cfg=[
+                     dict(type='Constant', val=1.0, bias=0, layer='LayerNorm'),
+                     dict(
+                         type='Normal',
+                         std=0.01,
+                         override=dict(name='conv_seg'))
+                 ],
+                 **kwargs):
 
-        super(SETRUPHead, self).__init__(init_cfg=init_cfg, **kwargs)
+        assert kernel_size in [1, 3], 'kernel_size must be 1 or 3.'
+
+        super().__init__(init_cfg=init_cfg, **kwargs)
 
         assert isinstance(self.in_channels, int)
 
@@ -58,11 +60,11 @@ class SETRUPHead(BaseDecodeHead):
                         stride=1,
                         padding=int(kernel_size - 1) // 2,
                         norm_cfg=self.norm_cfg,
-                        act_cfg=self.act_cfg,
-                    ),
-                    Upsample(scale_factor=up_scale, mode="bilinear", align_corners=self.align_corners),
-                )
-            )
+                        act_cfg=self.act_cfg),
+                    Upsample(
+                        scale_factor=up_scale,
+                        mode='bilinear',
+                        align_corners=self.align_corners)))
             in_channels = out_channels
 
     def forward(self, x):

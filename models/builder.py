@@ -23,35 +23,35 @@ import warnings
 # SEGMENTORS = MODELS
 
 
-def build_backbone(cfg):
-    """Build backbone."""
-    return BACKBONES.build(cfg)
+# def build_backbone(cfg):
+#     """Build backbone."""
+#     return BACKBONES.build(cfg)
 
 
-def build_neck(cfg):
-    """Build neck."""
-    return NECKS.build(cfg)
+# def build_neck(cfg):
+#     """Build neck."""
+#     return NECKS.build(cfg)
 
 
-def build_head(cfg):
-    """Build head."""
-    return HEADS.build(cfg)
+# def build_head(cfg):
+#     """Build head."""
+#     return HEADS.build(cfg)
 
 
-def build_loss(cfg):
-    """Build loss."""
-    return LOSSES.build(cfg)
+# def build_loss(cfg):
+#     """Build loss."""
+#     return LOSSES.build(cfg)
 
 
-def build_segmentor(cfg, train_cfg=None, test_cfg=None):
-    """Build segmentor."""
-    if train_cfg is not None or test_cfg is not None:
-        warnings.warn("train_cfg and test_cfg is deprecated, please specify them in model", UserWarning)
-    assert cfg.get("train_cfg") is None or train_cfg is None, (
-        "train_cfg specified in both outer field and model field "
-    )
-    assert cfg.get("test_cfg") is None or test_cfg is None, "test_cfg specified in both outer field and model field "
-    return SEGMENTORS.build(cfg, default_args=dict(train_cfg=train_cfg, test_cfg=test_cfg))
+# def build_segmentor(cfg, train_cfg=None, test_cfg=None):
+#     """Build segmentor."""
+#     if train_cfg is not None or test_cfg is not None:
+#         warnings.warn("train_cfg and test_cfg is deprecated, please specify them in model", UserWarning)
+#     assert cfg.get("train_cfg") is None or train_cfg is None, (
+#         "train_cfg specified in both outer field and model field "
+#     )
+#     assert cfg.get("test_cfg") is None or test_cfg is None, "test_cfg specified in both outer field and model field "
+#     return SEGMENTORS.build(cfg, default_args=dict(train_cfg=train_cfg, test_cfg=test_cfg))
 
 
 logger = get_logger()
@@ -98,6 +98,12 @@ class EncoderDecoder(nn.Module):
             from .encoders.DFormerv2 import DFormerv2_S as backbone
 
             self.channels = [64, 128, 256, 512]
+        elif cfg.backbone == "DoubleMiT":
+            from .encoders.double_mit import DoubleMiT as backbone
+        elif cfg.backbone == "DoubleNeXtV2":
+            from .encoders.double_next_v2 import DoubleNeXtV2 as backbone
+        elif cfg.backbone == "DNeXtV2":
+            from .encoders.Dnext_v2 import DNeXtV2 as backbone
         else:
             raise NotImplementedError
 
@@ -106,16 +112,56 @@ class EncoderDecoder(nn.Module):
         else:
             norm_cfg = dict(type="BN", requires_grad=True)
 
-        if cfg.drop_path_rate is not None:
-            self.backbone = backbone(drop_path_rate=cfg.drop_path_rate, norm_cfg=norm_cfg)
-        else:
-            self.backbone = backbone(drop_path_rate=0.1, norm_cfg=norm_cfg)
+        if 'DFormer' in cfg.backbone:
+            if cfg.drop_path_rate is not None:
+                self.backbone = backbone(drop_path_rate=cfg.drop_path_rate, norm_cfg=norm_cfg)
+            else:
+                self.backbone = backbone(drop_path_rate=0.1, norm_cfg=norm_cfg)
+        elif cfg.backbone == "DoubleMiT":
+            branchs = ['mit_b0', 'mit_b1', 'mit_b2', 'mit_b3', 'mit_b4', 'mit_b5']
+            assert cfg.rgb_branch in branchs
+            assert cfg.d_branch in branchs
+            assert 0 < float(cfg.downsample_ratio) <= 1
+
+            self.backbone = backbone(RGBBackbone=cfg.rgb_branch,
+                                     DBackbone=cfg.d_branch,
+                                     downsample_ratio=float(cfg.downsample_ratio))
+            self.channels = self.backbone.rgb_model_config['embed_dims']
+        elif cfg.backbone == "DoubleNeXtV2" or cfg.backbone == "DNeXtV2":
+            branchs = ['A', 'F', 'P', 'N', 'T', 'B', 'L', 'H']
+            assert cfg.rgb_branch in branchs
+            assert cfg.d_branch in branchs
+            assert 0 < float(cfg.downsample_ratio) <= 1
+            if cfg.backbone == "DNeXtV2":
+                self.backbone = backbone(rgb_backbone=cfg.rgb_branch,
+                                         d_backbone=cfg.d_branch,
+                                         downsample_ratio=float(cfg.downsample_ratio),
+                                         drop_path_rate=0.1,
+                                         output_to_depth=cfg.output_to_depth,
+                                         stage1_scc=cfg.stage1_scc)
+            else:
+                self.backbone = backbone(rgb_backbone=cfg.rgb_branch,
+                                         d_backbone=cfg.d_branch,
+                                         downsample_ratio=float(cfg.downsample_ratio),
+                                         drop_path_rate=0.1)
+            self.channels = self.backbone.d_dims
 
         self.aux_head = None
 
         if cfg.decoder == "MLPDecoder":
             logger.info("Using MLP Decoder")
             from .decoders.MLPDecoder import DecoderHead
+
+            self.decode_head = DecoderHead(
+                in_channels=self.channels,
+                num_classes=cfg.num_classes,
+                norm_layer=norm_layer,
+                embed_dim=cfg.decoder_embed_dim,
+            )
+        
+        elif cfg.decoder == "LMLPDecoder":
+            logger.info("Using LMLP Decoder")
+            from .decoders.LMLPDecoder import DecoderHead
 
             self.decode_head = DecoderHead(
                 in_channels=self.channels,
@@ -198,9 +244,20 @@ class EncoderDecoder(nn.Module):
             self.init_weights(cfg, pretrained=cfg.pretrained_model)
 
     def init_weights(self, cfg, pretrained=None):
-        if pretrained:
-            logger.info("Loading pretrained model: {}".format(pretrained))
-            self.backbone.init_weights(pretrained=pretrained)
+        if 'DFormer' in cfg.backbone:
+            if pretrained:
+                logger.info("Loading pretrained model: {}".format(pretrained))
+                self.backbone.init_weights(pretrained=pretrained)
+        elif cfg.backbone == "DoubleMiT" or cfg.backbone == "DoubleNeXtV2":
+            if cfg.rgb_pretrained and cfg.d_pretrained:
+                logger.info(f"Loading rgb pretrained model: {cfg.rgb_pretrained}")
+                logger.info(f"Loading depth pretrained model: {cfg.d_pretrained}")
+                self.backbone.init_weights(cfg.rgb_pretrained, cfg.d_pretrained)
+        elif cfg.backbone == "DNeXtV2":
+            logger.info(f"Loading rgb pretrained model: {cfg.rgb_pretrained}")
+            logger.info(f"Loading depth pretrained model: {cfg.d_pretrained}")
+            self.backbone.init_weights(cfg.rgb_pretrained, cfg.d_pretrained)
+                
         logger.info("Initing weights ...")
         init_weight(
             self.decode_head,

@@ -6,4 +6,6 @@ from .jpu import JPU
 from .mla_neck import MLANeck
 from .multilevel_neck import MultiLevelNeck
 
-__all__ = ["FPN", "MultiLevelNeck", "MLANeck", "ICNeck", "JPU", "Feature2Pyramid"]
+__all__ = [
+    'FPN', 'MultiLevelNeck', 'MLANeck', 'ICNeck', 'JPU', 'Feature2Pyramid'
+]

@@ -2,11 +2,11 @@
 import torch
 from mmcv.cnn import NonLocal2d
 
-from ..builder import HEADS
+from mmseg.registry import MODELS
 from .fcn_head import FCNHead
 
 
-@HEADS.register_module()
+@MODELS.register_module()
 class NLHead(FCNHead):
     """Non-local Neural Networks.
 
@@ -21,8 +21,12 @@ class NLHead(FCNHead):
             'dot_product'. Default: 'embedded_gaussian.'.
     """
 
-    def __init__(self, reduction=2, use_scale=True, mode="embedded_gaussian", **kwargs):
-        super(NLHead, self).__init__(num_convs=2, **kwargs)
+    def __init__(self,
+                 reduction=2,
+                 use_scale=True,
+                 mode='embedded_gaussian',
+                 **kwargs):
+        super().__init__(num_convs=2, **kwargs)
         self.reduction = reduction
         self.use_scale = use_scale
         self.mode = mode
@@ -32,8 +36,7 @@ class NLHead(FCNHead):
             use_scale=self.use_scale,
             conv_cfg=self.conv_cfg,
             norm_cfg=self.norm_cfg,
-            mode=self.mode,
-        )
+            mode=self.mode)
 
     def forward(self, inputs):
         """Forward function."""

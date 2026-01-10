@@ -24,35 +24,60 @@ from utils.pyt_utils import all_reduce_tensor
 
 # from eval import evaluate_mid
 
-
-parser = argparse.ArgumentParser()
-parser.add_argument("--config", help="train config file path")
-parser.add_argument("--gpus", default=2, type=int, help="used gpu number")
-# parser.add_argument('-d', '--devices', default='0,1', type=str)
-parser.add_argument("-v", "--verbose", default=False, action="store_true")
-parser.add_argument("--epochs", default=0)
-parser.add_argument("--show_image", "-s", default=False, action="store_true")
-parser.add_argument("--save_path", default=None)
-parser.add_argument("--checkpoint_dir")
-parser.add_argument("--continue_fpath")
-parser.add_argument("--sliding", default=False, action=argparse.BooleanOptionalAction)
-parser.add_argument("--compile", default=False, action=argparse.BooleanOptionalAction)
-parser.add_argument("--compile_mode", default="default")
-parser.add_argument("--syncbn", default=True, action=argparse.BooleanOptionalAction)
-parser.add_argument("--mst", default=True, action=argparse.BooleanOptionalAction)
-parser.add_argument("--amp", default=True, action=argparse.BooleanOptionalAction)
-parser.add_argument("--val_amp", default=True, action=argparse.BooleanOptionalAction)
-parser.add_argument("--pad_SUNRGBD", default=False, action=argparse.BooleanOptionalAction)
-parser.add_argument("--use_seed", default=True, action=argparse.BooleanOptionalAction)
-parser.add_argument("--local-rank", default=0)
-# parser.add_argument('--save_path', '-p', default=None)
+try:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", help="train config file path")
+    parser.add_argument("--gpus", default=2, type=int, help="used gpu number")
+    # parser.add_argument('-d', '--devices', default='0,1', type=str)
+    parser.add_argument("-v", "--verbose", default=False, action="store_true")
+    parser.add_argument("--epochs", default=0)
+    parser.add_argument("--show_image", "-s", default=False, action="store_true")
+    parser.add_argument("--save_path", default=None)
+    parser.add_argument("--checkpoint_dir")
+    parser.add_argument("--continue_fpath")
+    parser.add_argument("--sliding", default=False, action=argparse.BooleanOptionalAction)
+    parser.add_argument("--compile", default=False, action=argparse.BooleanOptionalAction)
+    parser.add_argument("--compile_mode", default="default")
+    parser.add_argument("--syncbn", default=True, action=argparse.BooleanOptionalAction)
+    parser.add_argument("--mst", default=True, action=argparse.BooleanOptionalAction)
+    parser.add_argument("--amp", default=True, action=argparse.BooleanOptionalAction)
+    parser.add_argument("--val_amp", default=True, action=argparse.BooleanOptionalAction)
+    parser.add_argument("--pad_SUNRGBD", default=False, action=argparse.BooleanOptionalAction)
+    parser.add_argument("--use_seed", default=True, action=argparse.BooleanOptionalAction)
+    parser.add_argument("--local-rank", default=0)
+    # parser.add_argument('--save_path', '-p', default=None)
+except AttributeError:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", help="train config file path")
+    parser.add_argument("--gpus", default=2, type=int, help="used gpu number")
+    # parser.add_argument('-d', '--devices', default='0,1', type=str)
+    parser.add_argument("-v", "--verbose", default=False, action="store_true")
+    parser.add_argument("--epochs", default=0)
+    parser.add_argument("--show_image", "-s", default=False, action="store_true")
+    parser.add_argument("--save_path", default=None)
+    parser.add_argument("--checkpoint_dir")
+    parser.add_argument("--continue_fpath")
+    parser.add_argument("--sliding", default=False, action='store_true')
+    parser.add_argument("--compile", default=False, action='store_true')
+    parser.add_argument("--compile_mode", default="default")
+    parser.add_argument("--syncbn", default=False, action='store_true')
+    parser.add_argument("--mst", default=False, action='store_true')
+    parser.add_argument("--amp", default=False, action='store_true')
+    parser.add_argument("--val_amp", default=False, action='store_true')
+    parser.add_argument("--pad_SUNRGBD", default=False, action='store_true')
+    parser.add_argument("--use_seed", default=False, action='store_true')
+    parser.add_argument("--local-rank", default=0)
+    # parser.add_argument('--save_path', '-p', default=None)
 
 # os.environ['MASTER_PORT'] = '169710'
-torch.set_float32_matmul_precision("high")
-import torch._dynamo
+try:
+    torch.set_float32_matmul_precision("high")
 
-torch._dynamo.config.suppress_errors = True
-# torch._dynamo.config.automatic_dynamic_shapes = False
+    import torch._dynamo
+    torch._dynamo.config.suppress_errors = True
+    # torch._dynamo.config.automatic_dynamic_shapes = False
+except AttributeError:
+    pass
 
 
 def is_eval(epoch, config):
@@ -104,7 +129,10 @@ def set_seed(seed):
     os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
 
     # avoiding nondeterministic algorithms (see https://pytorch.org/docs/stable/notes/randomness.html)
-    torch.use_deterministic_algorithms(True, warn_only=True)
+    try:
+        torch.use_deterministic_algorithms(True, warn_only=True)
+    except TypeError:
+        pass
 
 
 with Engine(custom_parser=parser) as engine:
@@ -248,6 +276,9 @@ with Engine(custom_parser=parser) as engine:
     engine.register_state(dataloader=train_loader, model=model, optimizer=optimizer)
     if engine.continue_state_object:
         engine.restore_checkpoint()
+        resume_epoch = engine.state.epoch
+    else:
+        resume_epoch = None
 
     optimizer.zero_grad()
 
@@ -383,7 +414,11 @@ with Engine(custom_parser=parser) as engine:
         # ):
         #     tb.add_scalar("train_loss", sum_loss / len(pbar), epoch)
 
-        if is_eval(epoch, config):
+        if resume_epoch is not None:
+            eval_flag = (epoch - resume_epoch) == 0
+        else:
+            eval_flag = None
+        if is_eval(epoch, config) or eval_flag:
             eval_timer.start()
             torch.cuda.empty_cache()
             # if args.compile and args.mst and (not args.sliding):
@@ -394,27 +429,50 @@ with Engine(custom_parser=parser) as engine:
                     model.eval()
                     device = torch.device("cuda")
                     if args.val_amp:
-                        with torch.autocast(device_type="cuda", dtype=torch.float16):
-                            if args.mst:
-                                all_metrics = evaluate_msf(
-                                    model,
-                                    val_loader,
-                                    config,
-                                    device,
-                                    [0.5, 0.75, 1.0, 1.25, 1.5],
-                                    True,
-                                    engine,
-                                    sliding=args.sliding,
-                                )
-                            else:
-                                all_metrics = evaluate(
-                                    model,
-                                    val_loader,
-                                    config,
-                                    device,
-                                    engine,
-                                    sliding=args.sliding,
-                                )
+                        try:
+                            with torch.autocast(device_type="cuda", dtype=torch.float16):
+                                if args.mst:
+                                    all_metrics = evaluate_msf(
+                                        model,
+                                        val_loader,
+                                        config,
+                                        device,
+                                        [0.5, 0.75, 1.0, 1.25, 1.5],
+                                        True,
+                                        engine,
+                                        sliding=args.sliding,
+                                    )
+                                else:
+                                    all_metrics = evaluate(
+                                        model,
+                                        val_loader,
+                                        config,
+                                        device,
+                                        engine,
+                                        sliding=args.sliding,
+                                    )
+                        except AttributeError:
+                            with torch.cuda.amp.autocast():
+                                if args.mst:
+                                    all_metrics = evaluate_msf(
+                                        model,
+                                        val_loader,
+                                        config,
+                                        device,
+                                        [0.5, 0.75, 1.0, 1.25, 1.5],
+                                        True,
+                                        engine,
+                                        sliding=args.sliding,
+                                    )
+                                else:
+                                    all_metrics = evaluate(
+                                        model,
+                                        val_loader,
+                                        config,
+                                        device,
+                                        engine,
+                                        sliding=args.sliding,
+                                    )
                     else:
                         if args.mst:
                             all_metrics = evaluate_msf(
@@ -458,27 +516,50 @@ with Engine(custom_parser=parser) as engine:
                     model.eval()
                     device = torch.device("cuda")
                     if args.val_amp:
-                        with torch.autocast(device_type="cuda", dtype=torch.float16):
-                            if args.mst:
-                                metric = evaluate_msf(
-                                    model,
-                                    val_loader,
-                                    config,
-                                    device,
-                                    [0.5, 0.75, 1.0, 1.25, 1.5],
-                                    True,
-                                    engine,
-                                    sliding=args.sliding,
-                                )
-                            else:
-                                metric = evaluate(
-                                    model,
-                                    val_loader,
-                                    config,
-                                    device,
-                                    engine,
-                                    sliding=args.sliding,
-                                )
+                        try:
+                            with torch.autocast(device_type="cuda", dtype=torch.float16):
+                                if args.mst:
+                                    metric = evaluate_msf(
+                                        model,
+                                        val_loader,
+                                        config,
+                                        device,
+                                        [0.5, 0.75, 1.0, 1.25, 1.5],
+                                        True,
+                                        engine,
+                                        sliding=args.sliding,
+                                    )
+                                else:
+                                    metric = evaluate(
+                                        model,
+                                        val_loader,
+                                        config,
+                                        device,
+                                        engine,
+                                        sliding=args.sliding,
+                                    )
+                        except AttributeError:
+                            with torch.cuda.amp.autocast():
+                                if args.mst:
+                                    metric = evaluate_msf(
+                                        model,
+                                        val_loader,
+                                        config,
+                                        device,
+                                        [0.5, 0.75, 1.0, 1.25, 1.5],
+                                        True,
+                                        engine,
+                                        sliding=args.sliding,
+                                    )
+                                else:
+                                    metric = evaluate(
+                                        model,
+                                        val_loader,
+                                        config,
+                                        device,
+                                        engine,
+                                        sliding=args.sliding,
+                                    )
                     else:
                         if args.mst:
                             metric = evaluate_msf(
