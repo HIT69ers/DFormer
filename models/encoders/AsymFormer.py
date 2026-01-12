@@ -21,7 +21,7 @@ def load_pretrain2(net, pretrain_name):
     return net
 
 
-model1 = convnext_tiny_local(pretrained=True, drop_path_rate=0.3)
+model1 = convnext_tiny_local(pretrained="/mnt/syh/pretrained/convnext/convnext_tiny_1k_224_ema.pth", drop_path_rate=0.3)
 # model1 = convnext_small(pretrained=True, drop_path_rate=0.3)
 # model1 = convnext_base(pretrained=True, drop_path_rate=0.3)
 ft1 = model1.stages

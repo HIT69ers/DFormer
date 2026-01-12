@@ -148,7 +148,7 @@ class EncoderDecoder(nn.Module):
                                          drop_path_rate=cfg.drop_path_rate)
             self.channels = self.backbone.d_dims
         elif cfg.backbone == "B0_T":
-            self.backbone == backbone(num_classes=40)
+            self.backbone = backbone(num_classes=40)
             self.channels = [32, 64, 160, 256]
 
         self.aux_head = None
