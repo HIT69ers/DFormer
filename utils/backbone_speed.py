@@ -15,6 +15,7 @@ from models.encoders.mix_transformer import mit_b0, mit_b1, mit_b2, mit_b3, mit_
 from models.encoders.convnextv2 import *
 from models.encoders.mscan import mscan_tiny, mscan_small, mscan_base, mscan_large
 from models.encoders.mobilenet_v2 import mobilenetv2
+from models.encoders.convnext import *
 
 
 def get_backbone():
@@ -42,6 +43,11 @@ def get_backbone():
         mscan_base=mscan_base,
         mscan_large=mscan_large,
         mobilenetv2=mobilenetv2,
+        convnext_tiny=convnext_tiny,
+        convnext_small=convnext_small,
+        convnext_base=convnext_base,
+        convnext_large=convnext_large,
+        convnext_xlarge=convnext_xlarge
     )
     if args.backbone not in backbones.keys():
         raise NotImplementedError
@@ -58,8 +64,8 @@ if __name__ == '__main__':
     model.eval()
     model.to(device)
 
-    # dummy_input = torch.rand(1, 3, 480, 640).cuda()
-    dummy_input = torch.rand(1, 3, 240, 320).cuda()
+    dummy_input = torch.rand(1, 3, 480, 640).cuda()
+    # dummy_input = torch.rand(1, 3, 240, 320).cuda()
     print(f"dummy_input.shape: {dummy_input.shape}")
 
     iterations = None
@@ -101,3 +107,6 @@ if __name__ == '__main__':
     FPS = 1000 / latency
     print(round(FPS, 2))
     print("================================")
+    flops, params = profile(model, inputs=(dummy_input, ))
+    print("the flops is {}G,the params is {}M".format(round(flops / (10**9), 2), round(params / (10**6), 2)))
+    print(f"-------------------------")
